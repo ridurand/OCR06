@@ -1,1 +1,1 @@
-web: gunicorn arrdelay_predict_dash.app:server
+web: gunicorn stackoverflowtags_predict_dash.app:server

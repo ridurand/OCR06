@@ -3,4 +3,5 @@ dash_table
 pandas
 sklearn-pandas
 gunicorn
-datetime
+pickle
+numpy
