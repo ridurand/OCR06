@@ -1,0 +1,6 @@
+dash
+dash_table
+pandas
+sklearn-pandas
+gunicorn
+datetime
