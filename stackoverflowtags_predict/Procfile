@@ -1,1 +1,0 @@
-web: gunicorn stackoverflowtags_predict_dash.app:server

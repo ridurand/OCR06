@@ -1,6 +1,6 @@
 ﻿# -*- coding: utf-8 -*-
 """
-STACKOVERFLOW_PREDICT_DASH
+STACKOVERFLOW_RECSYS_DASH
 Application simple qui propose une liste de tags StackOverflow relatifs 
 à une question saisie traitant de sujets informatiques
 
@@ -11,7 +11,7 @@ Pickles (.pkl) nécessaires :
     - lda_model_list (recommandation) : modèle non supervisé 
     - lr_top100tags_3labels (recommandation) : modèle supervisé 
 
-A exécuter dans stackoverflow_predict_dash
+A exécuter dans stackoverflow_recsys_dash
 
 exemple de phrases : 
 This sql request grouping values by keys on the relational database is not working.    
