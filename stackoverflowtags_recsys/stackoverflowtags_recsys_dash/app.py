@@ -1,6 +1,6 @@
 ﻿# -*- coding: utf-8 -*-
 """
-STACKOVERFLOW_RECSYS_DASH
+STACKOVERFLOWTAGS_RECSYS_DASH
 Application simple qui propose une liste de tags StackOverflow relatifs 
 à une question saisie traitant de sujets informatiques
 
@@ -11,7 +11,7 @@ Pickles (.pkl) nécessaires :
     - lda_model_list (recommandation) : modèle non supervisé 
     - lr_top100tags_3labels (recommandation) : modèle supervisé 
 
-A exécuter dans stackoverflow_recsys_dash
+A exécuter dans stackoverflowtags_recsys
 
 exemple de phrases : 
 This sql request grouping values by keys on the relational database is not working.    
@@ -24,22 +24,20 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
-import pickle 
 import numpy as np
+import pickle 
 from utils import clean_text, clean_punctuation, stopWordsRemove, lemmatization, Recommend_tags
+#heroku:from .utils import clean_text, clean_punctuation, stopWordsRemove, lemmatization, Recommend_tags
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
-# CHARGEMENT
-with open('top500tags.pkl', 'rb') as f:
-    top500tags = pickle.load(f)    
-with open('lda_model_list.pkl', 'rb') as f:
+with open('./stackoverflowtags_recsys_dash/lda_model_list.pkl', 'rb') as f:
     lda_model_list = pickle.load(f)    
-with open('lr_top100tags_3labels.pkl', 'rb') as f:
+with open('./stackoverflowtags_recsys_dash/lr_top100tags_3labels.pkl', 'rb') as f:
     lr_top100tags_3labels = pickle.load(f) 
-with open('mlb.pkl', 'rb') as f:
+with open('./stackoverflowtags_recsys_dash/mlb.pkl', 'rb') as f:
     mlb = pickle.load(f) 
-with open('tfidf.pkl', 'rb') as f:
+with open('./stackoverflowtags_recsys_dash/tfidf.pkl', 'rb') as f:
     tfidf = pickle.load(f)     
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -85,3 +83,4 @@ def update_output(n_clicks, value):
 
 if __name__ == "__main__":
     app.run_server(debug=True, use_reloader=False)
+#    app.run_server()

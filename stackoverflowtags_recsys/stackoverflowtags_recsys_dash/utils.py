@@ -1,14 +1,16 @@
 import numpy as np
 import pandas as pd
+import pickle 
 import re, spacy, nltk
+#heroku:import en_core_web_md
 from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
 from string import punctuation
-import pickle 
 
-with open('top500tags.pkl', 'rb') as f:
+with open('./stackoverflowtags_recsys_dash/top500tags.pkl', 'rb') as f:
     top500tags = pickle.load(f)    
 
+#heroku:nlp = en_core_web_md.load()
 nlp = spacy.load('en', disable=['parser', 'ner'])   
 spacy_tokenizer = nlp.Defaults.create_tokenizer(nlp)
 
@@ -184,3 +186,4 @@ def Recommend_tags(text_ori, n_words, mlb, tfidf, lda, clf, seuil=0.5, toptags=t
     result = pd.concat([pred_supervised, pred_unsupervised, text_ori, text], axis=1)
     
     return result
+

@@ -3,3 +3,8 @@ dash_table
 pandas
 sklearn-pandas
 gunicorn
+numpy
+spacy
+https://github.com/explosion/spacy-models/releases/download/en_core_web_md-2.2.5/en_core_web_md-2.2.5.tar.gz#egg=en_core_web_md==2.2.5
+nltk
+bs4
