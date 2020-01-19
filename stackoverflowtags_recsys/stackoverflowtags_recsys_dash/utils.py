@@ -7,50 +7,45 @@ from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
 from string import punctuation
 
-with open('./stackoverflowtags_recsys_dash/top500tags.pkl', 'rb') as f:
-    top500tags = pickle.load(f)    
-
 #heroku:nlp = en_core_web_md.load()
 nlp = spacy.load('en', disable=['parser', 'ner'])   
 spacy_tokenizer = nlp.Defaults.create_tokenizer(nlp)
 
-def clean_text(text):
-    ''' Lowering text and removing undesirable marks
+def clean_whitespace_and_code(text):
+    ''' Lowering text, removing whitespace and code 
     Parameter:
     text: corpus to clean
     '''
 
     
     text = text.lower()
-    text = re.sub(r"\'\n", " ", text) # removes line feeds
-    text = re.sub(r"\'\xa0", " ", text) # removes spaces
     text = re.sub('\s+', ' ', text) # matches all whitespace characters : \t\n\r\f\v
+    text = re.sub('<code>[^<]*</code>', '', text)
     text = text.strip(' ') # removes leading and trailing blanks
     
     return text
 
-def clean_punctuation(text, ignore_words): 
+def apply_specialtags_transco(text, specialtags):
+    ''' Transcode tags with punctuation 
+    Parameters:
+    text: text to transcode
+    '''    
+    
+    
+    for r in specialtags:
+        text = text.replace(*r)
+        
+    return text
+
+def clean_punctuation(text): 
     ''' Remove punctuation
     Parameters:
     text: corpus to remove punctuation from it
-    ignore_words: list of words to include without processing them
     '''
     
     
-    words = spacy_tokenizer(text)
-    punctuation_filtered = []
     regex = re.compile('[%s]' % re.escape(punctuation))
-    
-    for w in words:
-        # certains mots peuvent être des tags qui contiennent des signes de ponctuation, il faut les conserver tels quels
-        # en utilisant une liste de top tags la plus exhaustive possible
-        if str(w) in ignore_words: 
-            punctuation_filtered.append('<' + str(w) + '>')
-        else:
-            w = re.sub('[0-9]', ' ', str(w)) # word contains no digits
-            punctuation_filtered.append(regex.sub(' ', str(w)))
-        
-    result = ' '.join(punctuation_filtered)
+    result = re.sub(regex, ' ', text)    
     result = re.sub(' +', ' ', result) # remove duplicates whitespaces
     
     return result 
@@ -98,28 +93,27 @@ def lemmatization(text_in, allowed_postags, ignore_words):
 
     return result
 
-def Recommend_tags(text_ori, n_words, mlb, tfidf, lda, clf, seuil=0.5, toptags=top500tags, clean=False):
+def recommend_tags(text_ori, n_words, mlb, tfidf, lda, clf, seuil=0.5, clean=False):
     
-    ''' Recommendation system for StackOverflow posts based on a lda model, it returns up to 5 words.
+    ''' 
+    Recommendation system for StackOverflow posts based on a unsupervised model which returns 
+    up to 5 words and and supervised model which returns up to 3 words.
 
     Parameters:
 
-    text: the stackoverflow post of user
+    text_ori: the stackoverflow post of user
     n_words: number of tags to recommend
     seuil: threshold for decision
     clean: True if data preparation is needed
     '''
 
     auto_stopwords = set(set(nlp.Defaults.stop_words) | set(stopwords.words("english")))
-    manual_stopwords = ['file', 'way', 'application', 'user', 'use', 'method',
-                        'example', 'problem', 'work', 'test', 'question', 'project', 'thank',
-                        'return', 'solution', 'thing', 'change', 'program', 'idea', 'end',
-                        'message', 'result', 'answer', 'issue', 'language', 'information',
-                        'document', 'e', 'default', 'help', 'people', 'run', 'testing',
-                        'difference', 'stuff', 'need', 'response', 'check', 'product', 'approach', 
-                        'want', 'suggestion', 'n', 'custom', 'create', 'p', 'place', 'comment',
-                        'support', 'person', 'expression']
-    manual_stopwords = set(manual_stopwords)    
+    with open('manual_stopwords.pkl', 'rb') as f:
+        manual_stopwords = pickle.load(f) 
+    with open('ignore_words.pkl', 'rb') as f:
+        ignore_words = pickle.load(f) 
+    with open('specialtags.pkl', 'rb') as f:
+        specialtags = pickle.load(f)         
     
     if type(text_ori) in (str, pd.Series):
         if type(text_ori) is str:
@@ -131,12 +125,13 @@ def Recommend_tags(text_ori, n_words, mlb, tfidf, lda, clf, seuil=0.5, toptags=t
         return 'Type should be str or pd.Series'
 
     if clean==True:
-        text = text.apply(lambda x: clean_text(x))
-        text = text.apply(lambda x: BeautifulSoup(x, features="lxml").get_text())
-        text = text.apply(lambda x: clean_punctuation(x, top500tags))        
-        text = text.apply(lambda x: stopWordsRemove(x, auto_stopwords))
-        text = text.apply(lambda x: lemmatization(x, ['NOUN'], top500tags))   
-        text = text.apply(lambda x: stopWordsRemove(x, manual_stopwords))
+        text = text.apply(lambda s: clean_whitespace(s))
+        text = text.apply(lambda s: BeautifulSoup(s).get_text())
+        text = text.apply(lambda s: apply_specialtags_transco(s, specialtags))
+        text = text.apply(lambda s: clean_punctuation(s))
+        text = text.apply(lambda s: stopWordsRemove(s, auto_stopwords))
+        text = text.apply(lambda s: lemmatization(s, ['NOUN'], ignore_words))   
+        text = text.apply(lambda s: stopWordsRemove(s, manual_stopwords))
 
     # document = question StackOverflow
     # word = il s'agit des mots issus du vocabulaire LDA, retenus par le LDA (max_features)
@@ -147,7 +142,13 @@ def Recommend_tags(text_ori, n_words, mlb, tfidf, lda, clf, seuil=0.5, toptags=t
     
     document_tfidf = tfidf.transform(text)
     proba_topic_sachant_document = lda.transform(document_tfidf)
-    word_labels = tfidf.get_feature_names()
+    inv_specialtags = {v: k for k, v in dict(specialtags).items()}
+    words_label = []
+    for word in tfidf.get_feature_names():
+        if word in inv_specialtags.keys():
+            words_label.append(inv_specialtags[word])
+        else:
+            words_label.append(word)
     proba_word_sachant_topic = lda.components_ / lda.components_.sum(axis=1)[:, np.newaxis] # normalization    
     #print(proba_topic_sachant_document.shape)    
     #print(proba_word_sachant_topic.shape)    
@@ -165,7 +166,7 @@ def Recommend_tags(text_ori, n_words, mlb, tfidf, lda, clf, seuil=0.5, toptags=t
     # columns = les labels des mots sélectionnés en sortie du LDA
     df_wd = pd.DataFrame(data=proba_word_sachant_document,
                          index=text.index,
-                         columns=word_labels) 
+                         columns=words_label) 
     
     # np.argsort(-df_wd.values, axis=1)[:, :n_words])
     # renvoie pour chaque document, les "n_words" indexes des colonnes dont les proba sont les plus élevées
@@ -186,4 +187,3 @@ def Recommend_tags(text_ori, n_words, mlb, tfidf, lda, clf, seuil=0.5, toptags=t
     result = pd.concat([pred_supervised, pred_unsupervised, text_ori, text], axis=1)
     
     return result
-
