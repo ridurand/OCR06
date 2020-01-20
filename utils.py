@@ -29,6 +29,7 @@ def apply_specialtags_transco(text, specialtags):
     ''' Transcode tags with punctuation 
     Parameters:
     text: text to transcode
+    specialtags: list of tags with punctuation
     '''    
     
     
@@ -39,7 +40,7 @@ def apply_specialtags_transco(text, specialtags):
 
 def clean_punctuation(text): 
     ''' Remove punctuation
-    Parameters:
+    Parameter:
     text: corpus to remove punctuation from it
     '''
     
@@ -52,7 +53,7 @@ def clean_punctuation(text):
 
 def stopWordsRemove(text, stop_words):
     ''' Removing all the english stop words from a corpus
-    Parameter:
+    Parameters:
     text: corpus to remove stop words from it
     stop_words: list of stop words to exclude
     '''
@@ -67,10 +68,8 @@ def stopWordsRemove(text, stop_words):
 
 def lemmatization(text_in, allowed_postags, ignore_words):
     ''' It keeps the lemma of the words (lemma is the uninflected form of a word),
-    and deletes the undesired POS tags
-    
-    Parameters:
-    
+    and deletes the undesired POS tags    
+    Parameters:    
     text_in (list): text to lemmatize
     allowed_postags (list): list of allowed postags, like NOUN, ADJ, VERB, ADV
     ignore_words: list of words to include without processing them
@@ -93,52 +92,15 @@ def lemmatization(text_in, allowed_postags, ignore_words):
 
     return result
 
-def recommend_tags(text_ori, n_words, mlb, tfidf, lda, clf, seuil=0.5, clean=False):
-    
-    ''' 
-    Recommendation system for StackOverflow posts based on a unsupervised model which returns 
-    up to 5 words and and supervised model which returns up to 3 words.
-
-    Parameters:
-
-    text_ori: the stackoverflow post of user
-    n_words: number of tags to recommend
-    seuil: threshold for decision
-    clean: True if data preparation is needed
+def pred_nwords_unsupervised(text, tfidf, lda, n_words, specialtags):
+    ''' Recommend n_words tags by detecting latent topics in a corpus
+    Parameters:    
+    text: cleaned text on which recommendations are based
+    tfidf: tfidf transformer
+    lda: lda model
+    n_words: number of words retrieved
     '''
-
-    auto_stopwords = set(set(nlp.Defaults.stop_words) | set(stopwords.words("english")))
-    with open('manual_stopwords.pkl', 'rb') as f:
-        manual_stopwords = pickle.load(f) 
-    with open('ignore_words.pkl', 'rb') as f:
-        ignore_words = pickle.load(f) 
-    with open('specialtags.pkl', 'rb') as f:
-        specialtags = pickle.load(f)         
     
-    if type(text_ori) in (str, pd.Series):
-        if type(text_ori) is str:
-            text_ori = pd.Series(text_ori) 
-        text = text_ori
-        text_ori = text_ori.rename("Texte d'origine")
-        text = text.rename("Texte modifié")
-    else:
-        return 'Type should be str or pd.Series'
-
-    if clean==True:
-        text = text.apply(lambda s: clean_whitespace(s))
-        text = text.apply(lambda s: BeautifulSoup(s).get_text())
-        text = text.apply(lambda s: apply_specialtags_transco(s, specialtags))
-        text = text.apply(lambda s: clean_punctuation(s))
-        text = text.apply(lambda s: stopWordsRemove(s, auto_stopwords))
-        text = text.apply(lambda s: lemmatization(s, ['NOUN'], ignore_words))   
-        text = text.apply(lambda s: stopWordsRemove(s, manual_stopwords))
-
-    # document = question StackOverflow
-    # word = il s'agit des mots issus du vocabulaire LDA, retenus par le LDA (max_features)
-    # topic = il s'agit des topics issus du LDA (components)
-    # pour chaque document et chaque mot, je calcule la probabilité totale qu'un mot apparaisse dans le document 
-    # proba(word1) = proba(word1/topic1) * proba(topic1) + proba(word1/topic2) * proba(topic2) ...
-    # je conserve les n_tags
     
     document_tfidf = tfidf.transform(text)
     proba_topic_sachant_document = lda.transform(document_tfidf)
@@ -168,20 +130,64 @@ def recommend_tags(text_ori, n_words, mlb, tfidf, lda, clf, seuil=0.5, clean=Fal
                          index=text.index,
                          columns=words_label) 
     
-    # np.argsort(-df_wd.values, axis=1)[:, :n_words])
-    # renvoie pour chaque document, les "n_words" indexes des colonnes dont les proba sont les plus élevées
-    # grâce aux indexes, je peux récupérer le libellé de la colonne qui est donc le libellé du mot 
-    # et le stocker en ligne
     values = df_wd.columns.values[np.argsort(-df_wd.values, axis=1)[:, :n_words]]
     values = [", ".join(item) for item in values.astype(str)]
-    #pred_unsupervised = pd.DataFrame(df_wd.columns.values[np.argsort(-df_wd.values, axis=1)[:, :n_words]],
-    #                                 index=df_wd.index,
-    #                                 columns = ['word' + str(i + 1) for i in range(n_words)])
     pred_unsupervised = pd.DataFrame(values,
                                      index=df_wd.index,
                                      columns = ['Unsupervised'])
     
-    pred_supervised = pd.DataFrame(clf.predict_proba(tfidf.transform(text))).applymap(lambda x:1 if x>seuil else 0).to_numpy()
+    return pred_unsupervised
+
+def recommend_tags(text_ori, n_words, seuil=0.5, clean=False):
+    
+    ''' Recommendation system for StackOverflow posts based on a unsupervised model which returns 
+    up to 5 words and and supervised model which returns up to 3 words.
+    Parameters:
+    text_ori: the stackoverflow post of user
+    n_words: number of tags to recommend
+    seuil: threshold for decision
+    clean: True if data preparation is needed
+    '''
+    
+    # CHARGEMENT
+    with open('tfidf_unsupervised.pkl', 'rb') as f:
+        tfidf_unsupervised = pickle.load(f)    
+    with open('tfidf_supervised.pkl', 'rb') as f:
+        tfidf_supervised = pickle.load(f)    
+    with open('lda_model.pkl', 'rb') as f:
+        lda_model = pickle.load(f)    
+    with open('lr_top100tags_3labels.pkl', 'rb') as f:
+        clf_model = pickle.load(f) 
+    with open('mlb.pkl', 'rb') as f:
+        mlb = pickle.load(f) 
+    auto_stopwords = set(set(nlp.Defaults.stop_words) | set(stopwords.words("english")))
+    with open('manual_stopwords.pkl', 'rb') as f:
+        manual_stopwords = pickle.load(f) 
+    with open('ignore_words.pkl', 'rb') as f:
+        ignore_words = pickle.load(f) 
+    with open('specialtags.pkl', 'rb') as f:
+        specialtags = pickle.load(f)         
+    
+    if type(text_ori) in (str, pd.Series):
+        if type(text_ori) is str:
+            text_ori = pd.Series(text_ori) 
+        text = text_ori
+        text_ori = text_ori.rename("Texte d'origine")
+        text = text.rename("Texte modifié")
+    else:
+        return 'Type should be str or pd.Series'
+
+    if clean==True:
+        text = text.apply(lambda s: clean_whitespace_and_code(s))
+        text = text.apply(lambda s: BeautifulSoup(s).get_text())
+        text = text.apply(lambda s: apply_specialtags_transco(s, specialtags))
+        text = text.apply(lambda s: clean_punctuation(s))
+        text = text.apply(lambda s: stopWordsRemove(s, auto_stopwords))
+        text = text.apply(lambda s: lemmatization(s, ['NOUN'], ignore_words))   
+        text = text.apply(lambda s: stopWordsRemove(s, manual_stopwords))
+
+    pred_unsupervised = pred_nwords_unsupervised(text, tfidf_unsupervised, lda_model, n_words, specialtags)
+    pred_supervised = pd.DataFrame(clf_model.predict_proba(tfidf_supervised.transform(text))).applymap(lambda x:1 if x>seuil else 0).to_numpy()
     pred_supervised = pd.Series(mlb.inverse_transform(pred_supervised), name='Supervised', index=text.index)
     pred_supervised = pred_supervised.apply(lambda row: ', '.join(row))
     result = pd.concat([pred_supervised, pred_unsupervised, text_ori, text], axis=1)

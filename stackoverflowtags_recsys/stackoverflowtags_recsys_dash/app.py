@@ -5,17 +5,19 @@ Application simple qui propose une liste de tags StackOverflow relatifs
 à une question saisie traitant de sujets informatiques
 
 Pickles (.pkl) nécessaires : 
-    - ignore_words (préprocessing) 
-    - specialtags (préprocessing) 
-    - manual_stopwords (préprocessing) 
-    - mlb (préprocessing) : multilabelbinarizer pour transformer les prédictions supervisées en libellé
-    - tfidf (préprocessing) 
-    - lda_model_list (recommandation) : modèle non supervisé 
-    - lr_top100tags_3labels (recommandation) : modèle supervisé 
+- ignore_words (préprocessing) : liste des mots qui ne doivent pas être modifiés par le NLP
+- specialtags (préprocessing) : tags contenant des caractères spéciaux (C#...)
+- manual_stopwords (préprocessing) : stopwords issus de l’analyse exploratoire
+- mlb (préprocessing) : multilabelbinarizer pour transformer les prédictions supervisées en libellé
+- tfidf_unsupervised (préprocessing) : transformer TFIDF pour l’approche non supervisée
+- tfidf_supervised (préprocessing) : transformer TFIDF pour l’approche supervisée
+- lda_model (recommandation) : modèle non supervisé 
+- lr_top100tags_3labels (recommandation) : modèle supervisé
 
 A exécuter dans stackoverflowtags_recsys_dash 
 
 exemple de phrases : 
+I want to write a simple regular expression in Python that extracts a number from HTML.
 This sql request grouping values by keys on the relational database is not working.    
 I want to develop a web application generating html, javascript and css, what is the good language to do that.
 I want to code a Python function to sum item from a dictionary.
@@ -28,23 +30,10 @@ import dash_html_components as html
 import pandas as pd
 import numpy as np
 import pickle 
-from utils import clean_whitespace_and_code, apply_specialtags_transco, clean_punctuation, stopWordsRemove, lemmatization, recommend_tags
+from utils import clean_whitespace_and_code, apply_specialtags_transco, clean_punctuation, stopWordsRemove, lemmatization, pred_nwords_unsupervised, recommend_tags
 #heroku:from .utils import clean_whitespace_and_code, apply_specialtags_transco, clean_punctuation, stopWordsRemove, lemmatization, recommend_tags
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
-#heroku:with open('./stackoverflowtags_recsys_dash/lda_model_list.pkl', 'rb') as f:
-with open('./lda_model_list.pkl', 'rb') as f:
-    lda_model_list = pickle.load(f)    
-#heroku:with open('./stackoverflowtags_recsys_dash/lr_top100tags_3labels.pkl', 'rb') as f:
-with open('./lr_top100tags_3labels.pkl', 'rb') as f:    
-    lr_top100tags_3labels = pickle.load(f) 
-#heroku:with open('./stackoverflowtags_recsys_dash/mlb.pkl', 'rb') as f:
-with open('./mlb.pkl', 'rb') as f:    
-    mlb = pickle.load(f) 
-#heroku:with open('./stackoverflowtags_recsys_dash/tfidf.pkl', 'rb') as f:
-with open('./tfidf.pkl', 'rb') as f:    
-    tfidf = pickle.load(f)     
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
@@ -75,14 +64,7 @@ def update_output(n_clicks, value):
     supervised = ''
     unsupervised = ''
     if n_clicks > 0:
-      result = recommend_tags(value, 
-                              5, 
-                              mlb, 
-                              tfidf, 
-                              lda_model_list[4], 
-                              lr_top100tags_3labels.best_estimator_, 
-                              seuil=0.22, 
-                              clean=True)
+      result = recommend_tags(value, 5, seuil=0.22, clean=True)
       supervised = result['Supervised'][0]
       unsupervised = result['Unsupervised'][0]
     return supervised, unsupervised 
