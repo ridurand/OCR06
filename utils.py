@@ -141,7 +141,7 @@ def pred_nwords_unsupervised(text, tfidf, lda, n_words, specialtags):
 def recommend_tags(text_ori, n_words, seuil=0.5, clean=False):
     
     ''' Recommendation system for StackOverflow posts based on a unsupervised model which returns 
-    up to 5 words and and supervised model which returns up to 3 words.
+    up to 5 words and supervised model which returns up to 3 words.
     Parameters:
     text_ori: the stackoverflow post of user
     n_words: number of tags to recommend
