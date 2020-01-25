@@ -150,8 +150,8 @@ def recommend_tags(text_ori, n_words, seuil=0.5, clean=False):
     '''
     
     # CHARGEMENT
-    with open('tfidf_unsupervised.pkl', 'rb') as f:
-        tfidf_unsupervised = pickle.load(f)    
+    with open('tf_unsupervised.pkl', 'rb') as f:
+        tf_unsupervised = pickle.load(f)    
     with open('tfidf_supervised.pkl', 'rb') as f:
         tfidf_supervised = pickle.load(f)    
     with open('lda_model.pkl', 'rb') as f:
@@ -186,7 +186,7 @@ def recommend_tags(text_ori, n_words, seuil=0.5, clean=False):
         text = text.apply(lambda s: lemmatization(s, ['NOUN'], ignore_words))   
         text = text.apply(lambda s: stopWordsRemove(s, manual_stopwords))
 
-    pred_unsupervised = pred_nwords_unsupervised(text, tfidf_unsupervised, lda_model, n_words, specialtags)
+    pred_unsupervised = pred_nwords_unsupervised(text, tf_unsupervised, lda_model, n_words, specialtags)
     pred_supervised = pd.DataFrame(clf_model.predict_proba(tfidf_supervised.transform(text))).applymap(lambda x:1 if x>seuil else 0).to_numpy()
     pred_supervised = pd.Series(mlb.inverse_transform(pred_supervised), name='Supervised', index=text.index)
     pred_supervised = pred_supervised.apply(lambda row: ', '.join(row))

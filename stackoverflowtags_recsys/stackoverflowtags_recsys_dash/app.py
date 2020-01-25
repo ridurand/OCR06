@@ -9,7 +9,7 @@ Pickles (.pkl) nécessaires :
 - specialtags (préprocessing) : tags contenant des caractères spéciaux (C#...)
 - manual_stopwords (préprocessing) : stopwords issus de l’analyse exploratoire
 - mlb (préprocessing) : multilabelbinarizer pour transformer les prédictions supervisées en libellé
-- tfidf_unsupervised (préprocessing) : transformer TFIDF pour l’approche non supervisée
+- tf_unsupervised (préprocessing) : transformer TF pour l’approche non supervisée
 - tfidf_supervised (préprocessing) : transformer TFIDF pour l’approche supervisée
 - lda_model (recommandation) : modèle non supervisé 
 - lr_top100tags_3labels (recommandation) : modèle supervisé
